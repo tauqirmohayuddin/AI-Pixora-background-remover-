@@ -1,118 +1,97 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AI Pixora | Background Remover</title>
-  <link rel="icon" href="favicon.png" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Pixora Pro - Background Remover</title>
   <style>
-    body {
-      font-family: "Poppins", sans-serif;
-      text-align: center;
-      background: #f9fafb;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background: #e63946;
-      color: white;
-      padding: 1.5rem 1rem;
-      font-size: 1.6rem;
-      font-weight: bold;
-    }
-    main {
-      margin: 2rem auto;
-      max-width: 600px;
-      background: white;
-      padding: 2rem;
-      border-radius: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-    input[type="file"] {
-      padding: 0.5rem;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      width: 100%;
-      margin-bottom: 1rem;
-    }
-    button {
-      background: #e63946;
-      color: white;
-      padding: 0.7rem 1.5rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #d62839;
-    }
-    #output img {
-      margin-top: 1.5rem;
-      width: 100%;
-      border-radius: 8px;
-    }
-    #loading {
-      display: none;
-      color: #444;
-      font-weight: 500;
-    }
+    :root{--accent:#e63a46;--bg:#fff;--text:#222;--radius:12px}
+    body{margin:0;font-family:system-ui,Arial,Poppins,sans-serif;background:#f6f7fb;color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;box-sizing:border-box}
+    .container{width:100%;max-width:760px;background:#fff;padding:26px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.06);text-align:center}
+    h1{color:var(--accent);margin:0 0 8px 0}
+    p.lead{margin:0 0 18px 0;color:#333}
+    input[type=file]{display:block;margin:14px auto}
+    button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
+    button:disabled{opacity:.6;cursor:default}
+    #loader{display:none;margin:12px auto}
+    #result-img{max-width:100%;display:none;margin-top:12px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.08)}
+    a.download{display:none;margin-top:10px;padding:8px 12px;background:#06c;color:#fff;text-decoration:none;border-radius:8px}
+    #status{margin-top:12px;color:#444;min-height:22px}
+    .small{font-size:.9rem;color:#666;margin-top:8px}
   </style>
 </head>
-
 <body>
-  <header>AI Pixora Background Remover</header>
-  <main>
-    <p>Upload your image below and let AI Pixora remove its background instantly.</p>
+  <div class="container">
+    <h1>AI Pixora Pro</h1>
+    <p class="lead">Upload an image and remove its background securely.</p>
 
-    <input type="file" id="imageUpload" accept="image/*" />
-    <button id="removeBtn">Remove Background</button>
+    <input type="file" id="file-input" accept="image/*" />
+    <div><button id="remove-btn">Remove Background</button></div>
 
-    <p id="loading">Processing... please wait ⏳</p>
-    <div id="output"></div>
-  </main>
+    <div id="loader" aria-hidden="true">⏳ Processing…</div>
+    <div id="status" role="status"></div>
+
+    <img id="result-img" alt="Result image" />
+    <div><a id="download" class="download" download="AI-Pixora-Result.png">⬇️ Download Result</a></div>
+
+    <p class="small">Your image is processed server-side — API key kept secret in Netlify.</p>
+  </div>
 
   <script>
+    // === CHANGE THIS only if your Netlify site name is different ===
     const NETLIFY_URL = "https://ai-pixora-pro.netlify.app/.netlify/functions/remove-bg";
+    // ===============================================================
 
-    const uploadInput = document.getElementById("imageUpload");
-    const removeBtn = document.getElementById("removeBtn");
-    const outputDiv = document.getElementById("output");
-    const loadingText = document.getElementById("loading");
+    const removeBtn = document.getElementById("remove-btn");
+    const fileInput = document.getElementById("file-input");
+    const loader = document.getElementById("loader");
+    const statusDiv = document.getElementById("status");
+    const resultImg = document.getElementById("result-img");
+    const downloadBtn = document.getElementById("download");
 
-    removeBtn.addEventListener("click", async () => {
-      const file = uploadInput.files[0];
-      if (!file) {
-        alert("Please select an image first.");
+    removeBtn.onclick = async () => {
+      if (!fileInput.files || !fileInput.files.length) {
+        statusDiv.textContent = "Please select an image first.";
         return;
       }
 
-      loadingText.style.display = "block";
-      outputDiv.innerHTML = "";
-
-      const formData = new FormData();
-      formData.append("image_file", file);
+      const file = fileInput.files[0];
+      statusDiv.textContent = "Uploading and processing...";
+      loader.style.display = "block";
+      resultImg.style.display = "none";
+      downloadBtn.style.display = "none";
+      removeBtn.disabled = true;
 
       try {
-        const response = await fetch(NETLIFY_URL, {
+        const fd = new FormData();
+        fd.append("image_file", file); // remove.bg expects "image_file"
+        fd.append("size", "auto");
+
+        const res = await fetch(NETLIFY_URL, {
           method: "POST",
-          body: formData,
+          body: fd
         });
 
-        if (!response.ok) {
-          const err = await response.text();
-          throw new Error(err);
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error((res.status ? res.status + " " : "") + text);
         }
 
-        const blob = await response.blob();
-        const imgUrl = URL.createObjectURL(blob);
-        outputDiv.innerHTML = `<img src="${imgUrl}" alt="Background Removed">`;
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        resultImg.src = url;
+        resultImg.style.display = "block";
+        downloadBtn.href = url;
+        downloadBtn.style.display = "inline-block";
+        statusDiv.textContent = "✅ Background removed successfully!";
       } catch (err) {
-        outputDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
+        console.error("Client error:", err);
+        statusDiv.textContent = "❌ " + (err.message || "Processing failed. Check function logs.");
       } finally {
-        loadingText.style.display = "none";
+        loader.style.display = "none";
+        removeBtn.disabled = false;
       }
-    });
+    };
   </script>
 </body>
 </html>

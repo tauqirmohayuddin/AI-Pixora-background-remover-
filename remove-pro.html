@@ -3,125 +3,127 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AI Pixora Pro - Background Remover</title>
+  <title>AI Pixora Pro — Debug</title>
   <style>
-    :root{--accent:#e63a46;--bg:#fff;--text:#222;--radius:12px}
-    body{margin:0;font-family:system-ui,Arial,Poppins,sans-serif;background:#f6f7fb;color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;box-sizing:border-box}
-    .container{width:100%;max-width:760px;background:#fff;padding:26px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.06);text-align:center}
-    h1{color:var(--accent);margin:0 0 8px 0}
-    p.lead{margin:0 0 18px 0;color:#333}
-    input[type=file]{display:block;margin:14px auto}
-    button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
-    button:disabled{opacity:.6;cursor:default}
-    #loader{display:none;margin:12px auto}
-    #result-img{max-width:100%;display:none;margin-top:12px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.08)}
-    a.download{display:none;margin-top:10px;padding:8px 12px;background:#06c;color:#fff;text-decoration:none;border-radius:8px}
-    #status{margin-top:12px;color:#444;min-height:22px}
-    .small{font-size:.9rem;color:#666;margin-top:8px}
+    body{font-family:system-ui,Arial,sans-serif;background:#f6f7fb;color:#222;padding:18px}
+    .card{background:#fff;padding:18px;border-radius:10px;max-width:760px;margin:18px auto;box-shadow:0 8px 24px rgba(0,0,0,.06)}
+    button{padding:10px 14px;border-radius:8px;border:0;background:#e63a46;color:#fff;cursor:pointer}
+    .muted{color:#666;font-size:0.95rem}
+    pre{background:#f3f4f6;padding:12px;border-radius:8px;overflow:auto;white-space:pre-wrap}
+    input[type=file]{margin-top:8px}
+    .danger{color:#b00020}
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>AI Pixora Pro</h1>
-    <p class="lead">Upload an image and remove its background securely.</p>
+  <div class="card">
+    <h2>AI Pixora Pro — Debug helper</h2>
+    <p class="muted">This page will show the raw responses from your Netlify function so we can see exactly what's failing.</p>
 
-    <input type="file" id="file-input" accept="image/*" />
-    <div><button id="remove-btn">Remove Background</button></div>
+    <div style="margin:12px 0">
+      <button id="testBtn">Connectivity test (empty POST)</button>
+      <span style="margin-left:12px" class="muted">— sends an empty POST to <code>/.netlify/functions/remove-bg</code></span>
+    </div>
 
-    <div id="loader" aria-hidden="true">⏳ Processing…</div>
-    <div id="status" role="status"></div>
+    <div style="margin:12px 0">
+      <label class="muted">Choose image for real test (remove.bg expects form field name <code>image_file</code>):</label><br>
+      <input id="fileInput" type="file" accept="image/*" />
+      <div style="margin-top:8px">
+        <button id="sendBtn">Send file</button>
+      </div>
+    </div>
 
-    <img id="result-img" alt="Result image" />
-    <div><a id="download" class="download" download="AI-Pixora-Result.png">⬇️ Download Result</a></div>
+    <h3>Result</h3>
+    <div id="result" aria-live="polite">
+      <pre id="out">(no test run yet)</pre>
+    </div>
 
-    <p class="small">Your image is processed server-side — API key kept secret in Netlify.</p>
+    <h3>Quick instructions</h3>
+    <ol>
+      <li>Deploy after committing this file.</li>
+      <li>Open page and click <strong>Connectivity test</strong>.</li>
+      <li>Then test with a small image by clicking <strong>Send file</strong>.</li>
+      <li>Copy & paste the output here (or screenshot it).</li>
+    </ol>
   </div>
 
-  <!-- Single script block: put all JS here -->
-  <script>
-    // Use the relative function path (Netlify will map /.netlify/functions/* to your function)
-    const NETLIFY_URL = "/.netlify/functions/remove-bg";
+<script>
+(function(){
+  const NETLIFY_URL = "/.netlify/functions/remove-bg";
+  const out = document.getElementById('out');
+  const testBtn = document.getElementById('testBtn');
+  const sendBtn = document.getElementById('sendBtn');
+  const fileInput = document.getElementById('fileInput');
 
-    const removeBtn = document.getElementById("remove-btn");
-    const fileInput = document.getElementById("file-input");
-    const loader = document.getElementById("loader");
-    const statusDiv = document.getElementById("status");
-    const resultImg = document.getElementById("result-img");
-    const downloadBtn = document.getElementById("download");
+  function show(text){
+    out.textContent = text;
+    console.log(text);
+  }
 
-    function show(msg) {
-      console.log(msg);
-      statusDiv.textContent = msg;
+  async function fetchText(req){
+    try {
+      const res = await fetch(req);
+      const headers = {};
+      res.headers.forEach((v,k)=> headers[k]=v);
+      // Try to read body as text; if binary returned this will be gibberish but we still capture status
+      const body = await res.text();
+      return { status: res.status, ok: res.ok, statusText: res.statusText, headers, body };
+    } catch(e){
+      return { error: String(e) };
     }
+  }
 
-    removeBtn.onclick = async () => {
-      if (!fileInput.files || !fileInput.files.length) {
-        show("Please select an image first.");
-        return;
-      }
+  testBtn.addEventListener('click', async ()=>{
+    show('Running connectivity test...\n\nPOST ' + NETLIFY_URL + '\n\n(please wait)');
+    const r = await fetchText(new Request(NETLIFY_URL, { method: 'POST', body: new FormData() }));
+    if (r.error) {
+      show('Network error:\n' + r.error);
+      return;
+    }
+    show('Status: ' + r.status + ' ' + r.statusText + '\n\nHeaders:\n' + JSON.stringify(r.headers, null, 2) + '\n\nBody (first 4000 chars):\n' + (r.body ? r.body.slice(0,4000) : '(empty)'));
+  });
 
-      const file = fileInput.files[0];
+  sendBtn.addEventListener('click', async ()=>{
+    if (!fileInput.files || !fileInput.files.length) {
+      show('Please choose a file first.');
+      return;
+    }
+    const file = fileInput.files[0];
+    show('Uploading file "' + file.name + '" (' + file.size + ' bytes) ...');
 
-      // UI start
-      show("Uploading and processing...");
-      loader.style.display = "block";
-      resultImg.style.display = "none";
-      downloadBtn.style.display = "none";
-      removeBtn.disabled = true;
+    const fd = new FormData();
+    fd.append('image_file', file);
+    fd.append('size', 'auto');
 
+    try {
+      const res = await fetch(NETLIFY_URL, { method: 'POST', body: fd });
+      const headers = {};
+      res.headers.forEach((v,k)=> headers[k]=v);
+
+      // If binary result, try to download to blob and show blob size; also try text fallback
+      let bodySnippet = '';
       try {
-        const fd = new FormData();
-        fd.append("image_file", file); // remove.bg expects "image_file"
-        fd.append("size", "auto");
-
-        console.log("Sending POST to:", NETLIFY_URL, "FormData keys:", Array.from(fd.keys()));
-
-        const res = await fetch(NETLIFY_URL, {
-          method: "POST",
-          body: fd
-          // DO NOT set Content-Type header; browser will add the correct multipart boundary
-        });
-
-        console.log("Fetch returned:", res.status, res.statusText);
-
-        if (!res.ok) {
-          const text = await res.text();
-          console.error("Server error text:", text);
-          statusDiv.innerText = "❌ Server: " + res.status + " — " + (text || res.statusText);
-          return;
-        }
-
-        const blob = await res.blob();
-        console.log("Received blob, size:", blob.size);
-        const url = URL.createObjectURL(blob);
-        resultImg.src = url;
-        resultImg.style.display = "block";
-        downloadBtn.href = url;
-        downloadBtn.style.display = "inline-block";
-        show("✅ Background removed successfully!");
-      } catch (err) {
-        console.error("Client error:", err);
-        show("⚠️ Network/Client error: " + (err.message || err));
-      } finally {
-        loader.style.display = "none";
-        removeBtn.disabled = false;
+        // attempt to read as text (error message likely)
+        const maybeText = await res.text();
+        bodySnippet = maybeText;
+      } catch(e){
+        bodySnippet = '(could not read body as text: ' + e + ')';
       }
-    };
 
-    // Optional helper you can run from the Console to check connectivity:
-    window.testFunc = async function() {
-      try {
-        console.log("Connectivity test to", NETLIFY_URL);
-        const r = await fetch(NETLIFY_URL, { method: "POST", body: new FormData() });
-        console.log("Connectivity test status:", r.status, r.statusText);
-        const t = await r.text();
-        console.log("Response body (first 1000 chars):", t.slice(0,1000));
-        alert("Connectivity test finished. Check console for details.");
-      } catch (e) {
-        console.error("Connectivity test error:", e);
-        alert("Connectivity test error — see console.");
-      }
-    };
-  </script>
+      // If response is binary (image) the server may return binary and text will be empty or garbage.
+      // Provide details for debugging:
+      show('Status: ' + res.status + ' ' + res.statusText + '\n\nHeaders:\n' + JSON.stringify(headers, null, 2) +
+           '\n\nBody (first 4000 chars):\n' + (bodySnippet ? bodySnippet.slice(0,4000) : '(empty)') +
+           '\n\nNote: if the function returns an image binary the body may look empty here. In that case check function logs in Netlify.');
+    } catch(err){
+      show('Network/Client error:\n' + String(err));
+    }
+  });
+
+  // Also expose window.testFunc for console use
+  window.testFunc = async function(){
+    testBtn.click();
+  };
+})();
+</script>
 </body>
 </html>

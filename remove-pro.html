@@ -1,100 +1,92 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AI Pixora Pro - Background Remover</title>
-  <style>
-    :root{--accent:#e63a46;--bg:#fff;--text:#222;--radius:12px}
-    body{margin:0;font-family:system-ui,Arial,Poppins,sans-serif;background:#f6f7fb;color:var(--text);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;box-sizing:border-box}
-    .container{width:100%;max-width:760px;background:#fff;padding:26px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.06);text-align:center}
-    h1{color:var(--accent);margin:0 0 8px 0}
-    p.lead{margin:0 0 18px 0;color:#333}
-    input[type=file]{display:block;margin:14px auto}
-    button{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:16px}
-    button:disabled{opacity:.6;cursor:default}
-    #loader{display:none;margin:12px auto}
-    #result-img{max-width:100%;display:none;margin-top:12px;border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.08)}
-    a.download{display:none;margin-top:10px;padding:8px 12px;background:#06c;color:#fff;text-decoration:none;border-radius:8px}
-    #status{margin-top:12px;color:#444;min-height:22px}
-    .small{font-size:.9rem;color:#666;margin-top:8px}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>AI Pixora Pro</h1>
-    <p class="lead">Upload an image and remove its background securely.</p>
+<script>
+  // Use a relative function path (safer / simpler on Netlify)
+  const NETLIFY_URL = "/.netlify/functions/remove-bg";
 
-    <input type="file" id="file-input" accept="image/*" />
-    <div><button id="remove-btn">Remove Background</button></div>
+  const removeBtn = document.getElementById("remove-btn");
+  const fileInput = document.getElementById("file-input");
+  const loader = document.getElementById("loader");
+  const statusDiv = document.getElementById("status");
+  const resultImg = document.getElementById("result-img");
+  const downloadBtn = document.getElementById("download");
 
-    <div id="loader" aria-hidden="true">⏳ Processing…</div>
-    <div id="status" role="status"></div>
+  // Utility: show message AND console.log
+  function show(msg) {
+    console.log(msg);
+    statusDiv.textContent = msg;
+  }
 
-    <img id="result-img" alt="Result image" />
-    <div><a id="download" class="download" download="AI-Pixora-Result.png">⬇️ Download Result</a></div>
+  removeBtn.onclick = async () => {
+    if (!fileInput.files || !fileInput.files.length) {
+      show("Please select an image first.");
+      return;
+    }
 
-    <p class="small">Your image is processed server-side — API key kept secret in Netlify.</p>
-  </div>
+    const file = fileInput.files[0];
 
-  <script>
-    // === CHANGE THIS only if your Netlify site name is different ===
-    const NETLIFY_URL = "https://ai-pixora-pro.netlify.app/.netlify/functions/remove-bg";
-    // ===============================================================
+    // UI start
+    show("Uploading and processing...");
+    loader.style.display = "block";
+    resultImg.style.display = "none";
+    downloadBtn.style.display = "none";
+    removeBtn.disabled = true;
 
-    const removeBtn = document.getElementById("remove-btn");
-    const fileInput = document.getElementById("file-input");
-    const loader = document.getElementById("loader");
-    const statusDiv = document.getElementById("status");
-    const resultImg = document.getElementById("result-img");
-    const downloadBtn = document.getElementById("download");
+    try {
+      const fd = new FormData();
+      fd.append("image_file", file); // remove.bg expects "image_file"
+      fd.append("size", "auto");
 
-    removeBtn.onclick = async () => {
-      if (!fileInput.files || !fileInput.files.length) {
-        statusDiv.textContent = "Please select an image first.";
+      console.log("Sending POST to:", NETLIFY_URL, "FormData keys:", Array.from(fd.keys()));
+
+      // send the form
+      const res = await fetch(NETLIFY_URL, {
+        method: "POST",
+        body: fd,
+        // Don't set Content-Type: the browser will set it (with boundary)
+      });
+
+      console.log("Fetch returned:", res.status, res.statusText);
+
+      if (!res.ok) {
+        // try to read text body from the function (useful for debugging)
+        const text = await res.text();
+        console.error("Server error text:", text);
+        show("❌ Server error: " + res.status + " — see console for details.");
+        // put server message in status for mobile visibility
+        statusDiv.innerText = "❌ Server: " + res.status + " — " + (text || res.statusText);
         return;
       }
 
-      const file = fileInput.files[0];
-      statusDiv.textContent = "Uploading and processing...";
-      loader.style.display = "block";
-      resultImg.style.display = "none";
-      downloadBtn.style.display = "none";
-      removeBtn.disabled = true;
+      // success: function should return base64 image (isBase64Encoded:true),
+      // but Netlify will respond with binary if we forward correctly. We'll accept blob.
+      const blob = await res.blob();
+      console.log("Received blob, size:", blob.size);
+      const url = URL.createObjectURL(blob);
+      resultImg.src = url;
+      resultImg.style.display = "block";
+      downloadBtn.href = url;
+      downloadBtn.style.display = "inline-block";
+      show("✅ Background removed successfully!");
+    } catch (err) {
+      console.error("Client error:", err);
+      show("⚠️ Network/Client error: " + (err.message || err));
+    } finally {
+      loader.style.display = "none";
+      removeBtn.disabled = false;
+    }
+  };
 
-      try {
-        const fd = new FormData();
-        fd.append("image_file", file); // remove.bg expects "image_file"
-        fd.append("size", "auto");
-
-        const res = await fetch(NETLIFY_URL, {
-          method: "POST",
-          body: fd
-        });
-
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error((res.status ? res.status + " " : "") + text);
-        }
-
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        resultImg.src = url;
-        resultImg.style.display = "block";
-        downloadBtn.href = url;
-        downloadBtn.style.display = "inline-block";
-        statusDiv.textContent = "✅ Background removed successfully!";
-      } catch (err) {
-        console.error("Client error:", err);
-        statusDiv.textContent = "❌ " + (err.message || "Processing failed. Check function logs.");
-      } finally {
-        loader.style.display = "none";
-        removeBtn.disabled = false;
-      }
-    };
-  </script>
-</body>
-</html>
-
-
----
+  // --- Quick connectivity test (open browser console and run `testFunc()`):
+  window.testFunc = async function() {
+    try {
+      console.log("Connectivity test to", NETLIFY_URL);
+      const r = await fetch(NETLIFY_URL, { method: "POST", body: new FormData() });
+      console.log("Connectivity test status:", r.status, r.statusText);
+      const t = await r.text();
+      console.log("Response body (first 1000 chars):", t.slice(0,1000));
+      alert("Connectivity test finished. Check console for details.");
+    } catch (e) {
+      console.error("Connectivity test error:", e);
+      alert("Connectivity test error — see console.");
+    }
+  };
+</script>

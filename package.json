@@ -1,8 +1,14 @@
 {
   "name": "ai-pixora-pro",
   "version": "1.0.0",
-  "type": "commonjs",
-  "dependencies": {
-    "node-fetch": "^2.6.9"
+  "description": "AI Pixora Pro - Background remover using remove.bg API and Netlify Functions",
+  "main": "netlify/functions/remove-bg.js",
+  "type": "module",
+  "scripts": {
+    "start": "netlify dev"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=18"
   }
 }

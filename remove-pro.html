@@ -1,55 +1,121 @@
-<script>
-const removeBtn=document.getElementById("remove-btn");
-const fileInput=document.getElementById("file-input");
-const loader=document.getElementById("loader");
-const statusDiv=document.getElementById("status");
-const resultImg=document.getElementById("result-img");
-const downloadBtn=document.getElementById("download");
-
-const NETLIFY_URL="https://ai-pixora-pro.netlify.app/.netlify/functions/remove-bg";
-
-removeBtn.onclick=async()=>{
-  if(!fileInput.files.length){
-    statusDiv.textContent="Please select an image first.";
-    return;
-  }
-
-  const file=fileInput.files[0];
-  statusDiv.textContent="Uploading and processing...";
-  loader.style.display="block";
-  resultImg.style.display="none";
-  downloadBtn.style.display="none";
-  removeBtn.disabled=true;
-
-  try{
-    const fd=new FormData();
-    fd.append("image_file",file);
-    fd.append("size","auto");
-
-    const res=await fetch(NETLIFY_URL,{method:"POST",body:fd});
-    if(!res.ok){
-      const txt=await res.text();
-      console.error("Error:",txt);
-      statusDiv.textContent="❌ Error "+res.status;
-      return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Pixora | Background Remover</title>
+  <link rel="icon" href="favicon.png" />
+  <style>
+    body {
+      font-family: "Poppins", sans-serif;
+      text-align: center;
+      background: #f9fafb;
+      margin: 0;
+      padding: 0;
     }
+    header {
+      background: #e63946;
+      color: white;
+      padding: 1.5rem 1rem;
+      font-size: 1.6rem;
+      font-weight: bold;
+    }
+    main {
+      margin: 2rem auto;
+      max-width: 600px;
+      background: white;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    input[type="file"] {
+      padding: 0.5rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+    button {
+      background: #e63946;
+      color: white;
+      padding: 0.7rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #d62839;
+    }
+    #output img {
+      margin-top: 1.5rem;
+      width: 100%;
+      border-radius: 8px;
+    }
+    #loading {
+      display: none;
+      color: #444;
+      font-weight: 500;
+    }
+  </style>
+</head>
 
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    resultImg.src=url;
-    resultImg.style.display="block";
-    downloadBtn.href=url;
-    downloadBtn.style.display="inline-block";
-    statusDiv.textContent="✅ Background removed successfully!";
-  }catch(err){
-    console.error(err);
-    statusDiv.textContent="⚠️ Error: "+err.message;
-  }finally{
-    loader.style.display="none";
-    removeBtn.disabled=false;
-  }
-}
-</script>
+<body>
+  <header>AI Pixora Background Remover</header>
+  <main>
+    <p>Upload your image below and let AI Pixora remove its background instantly.</p>
+
+    <input type="file" id="imageUpload" accept="image/*" />
+    <button id="removeBtn">Remove Background</button>
+
+    <p id="loading">Processing... please wait ⏳</p>
+    <div id="output"></div>
+  </main>
+
+  <script>
+    const NETLIFY_URL = "https://ai-pixora-pro.netlify.app/.netlify/functions/remove-bg";
+
+    const uploadInput = document.getElementById("imageUpload");
+    const removeBtn = document.getElementById("removeBtn");
+    const outputDiv = document.getElementById("output");
+    const loadingText = document.getElementById("loading");
+
+    removeBtn.addEventListener("click", async () => {
+      const file = uploadInput.files[0];
+      if (!file) {
+        alert("Please select an image first.");
+        return;
+      }
+
+      loadingText.style.display = "block";
+      outputDiv.innerHTML = "";
+
+      const formData = new FormData();
+      formData.append("image_file", file);
+
+      try {
+        const response = await fetch(NETLIFY_URL, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const err = await response.text();
+          throw new Error(err);
+        }
+
+        const blob = await response.blob();
+        const imgUrl = URL.createObjectURL(blob);
+        outputDiv.innerHTML = `<img src="${imgUrl}" alt="Background Removed">`;
+      } catch (err) {
+        outputDiv.innerHTML = `<p style="color:red;">❌ Error: ${err.message}</p>`;
+      } finally {
+        loadingText.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>
 
 
 ---

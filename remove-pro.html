@@ -142,6 +142,31 @@
   };
   // small note so the console can log typeof immediately if you run it
   console.log('Debug helper: window.testFunc installed.');
+</script><!-- Debug helper: exposes window.testFunc for console connectivity checks -->
+<script>
+  // safe debug helper — only logs connectivity and response body snippet
+  window.testFunc = async function () {
+    const url = '/.netlify/functions/remove-bg'; // function path used by the page
+    console.log('Running connectivity test to:', url);
+    try {
+      const res = await fetch(url, { method: 'POST' });
+      console.log('Fetch returned:', res.status, res.statusText);
+      // try read body as text (if binary this will fail)
+      let bodySnippet = '';
+      try {
+        const text = await res.text();
+        bodySnippet = text.slice(0, 4000);
+      } catch (e) {
+        bodySnippet = '(could not read body as text — probably binary)';
+      }
+      console.log('Body (first 4000 chars):\n', bodySnippet);
+      return { status: res.status, statusText: res.statusText, bodySnippet };
+    } catch (err) {
+      console.error('Network/Client error:', err);
+      return { error: String(err) };
+    }
+  };
 </script>
+
 </body>
 </html>

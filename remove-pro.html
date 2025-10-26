@@ -124,6 +124,24 @@
     testBtn.click();
   };
 })();
+</script><!-- Debug helper: allows console to test connectivity -->
+<script>
+  // Expose a test function to the page as window.testFunc
+  window.testFunc = async function() {
+    try {
+      console.log('Running testFunc: hitting /.netlify/functions/remove-bg');
+      const res = await fetch('/.netlify/functions/remove-bg', { method: 'POST', body: new FormData() });
+      const text = await res.text().catch(()=>'<non-text response>');
+      console.log('testFunc result:', res.status, res.statusText);
+      console.log('Body (first 2000 chars):', (text || '').slice(0,2000));
+      alert('testFunc finished — check console for results.');
+    } catch (e) {
+      console.error('testFunc error:', e);
+      alert('testFunc error — see console.');
+    }
+  };
+  // small note so the console can log typeof immediately if you run it
+  console.log('Debug helper: window.testFunc installed.');
 </script>
 </body>
 </html>

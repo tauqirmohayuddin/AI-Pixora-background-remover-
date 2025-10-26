@@ -166,7 +166,25 @@
       return { error: String(err) };
     }
   };
-</script>
+</script><script>
+window.testFunc = async function () {
+  console.log("✅ testFunc loaded successfully");
 
+  const testBtn =
+    document.getElementById("testBtn") ||
+    document.getElementById("sendBtn") ||
+    document.querySelector("button");
+
+  if (testBtn) {
+    console.log("Found button:", testBtn.id);
+    testBtn.click();
+  } else {
+    console.error("❌ No test button found.");
+  }
+};
+console.log("✅ Script initialized");
+</script>
+</body>
+</html>
 </body>
 </html>

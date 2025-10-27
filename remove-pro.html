@@ -1,72 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Pixora Pro — Remove Background</title>
+  <style>
+    body { font-family: Arial, Helvetica, sans-serif; color:#333; margin: 0; padding: 0; background:#f7f7f7; }
+    .hero { background:#c0392b; color:white; padding: 36px 20px; text-align:center; }
+    .container { max-width:900px; margin:24px auto; padding:20px; background:white; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.06); }
+    .center { text-align:center; }
+    .upload-box { display:flex; gap:12px; align-items:center; justify-content:center; margin:22px 0; flex-wrap:wrap; }
+    input[type=file] { padding:6px; }
+    button { background:#c0392b; color:white; border:0; padding:10px 18px; border-radius:6px; cursor:pointer; font-weight:600; }
+    button[disabled] { opacity:0.6; cursor:default; }
+    #status { margin-top:12px; min-height:22px; color:#444; }
+    #resultImg { max-width:100%; display:block; margin:18px auto; border-radius:8px; box-shadow:0 6px 18px rgba(0,0,0,0.08); }
+    .controls { text-align:center; margin-top:12px; }
+    .small { font-size:0.9rem; color:#666; margin-top:6px;}
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <h1>AI Pixora Pro</h1>
+    <p style="margin:6px 0 0;">Smart, fast background remover — upload an image and get a transparent result.</p>
+  </header>
+
+  <main class="container">
+    <div class="center">
+      <h2>Remove Background</h2>
+      <p class="small">Supported: PNG, JPEG. Keep files under your function's upload limit.</p>
+
+      <div class="upload-box">
+        <input id="fileInput" type="file" accept="image/*" />
+        <button id="removeBtn">Remove Background</button>
+      </div>
+
+      <div id="status" aria-live="polite"></div>
+
+      <div id="preview" class="center" style="display:none;">
+        <h3>Result</h3>
+        <img id="resultImg" alt="Result will appear here" src="" />
+        <div class="controls">
+          <a id="downloadLink" download="result.png" href="#" style="text-decoration:none">
+            <button id="downloadBtn">Download Result</button>
+          </a>
+        </div>
+      </div>
+
+      <p class="small">If you see an error referencing `Unexpected token '<'` — it means your page attempted to load server-side code as client JS. This page uses `fetch()` and will not try to load server code in the browser.</p>
+    </div>
+  </main>
+
+  <footer style="text-align:center; padding:18px 0; color:#777;">
+    © 2025 AI Pixora Pro
+  </footer>
+
 <script>
-async function fileToBase64(file){
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      // reader.result like "data:image/png;base64,AAAA..."
-      const parts = reader.result.split(',');
-      resolve(parts[1]); // return only base64 string
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-async function removeBackground() {
+(() => {
   const fileInput = document.getElementById('fileInput');
-  if (!fileInput.files.length) {
-    alert('Choose an image first');
-    return;
-  }
-  const file = fileInput.files[0];
-  try {
-    // convert to base64 (no data:* prefix)
-    const imageBase64 = await fileToBase64(file);
+  const removeBtn = document.getElementById('removeBtn');
+  const status = document.getElementById('status');
+  const preview = document.getElementById('preview');
+  const resultImg = document.getElementById('resultImg');
+  const downloadLink = document.getElementById('downloadLink');
 
-    // call netlify function
-    const resp = await fetch('/.netlify/functions/remove-bg', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64 })
+  function setStatus(text, isError = false) {
+    status.style.color = isError ? '#C0392B' : '#333';
+    status.textContent = text || '';
+  }
+
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => { reader.abort(); reject(new Error('Failed to read file')); };
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
     });
-
-    if (!resp.ok) {
-      const txt = await resp.text();
-      console.error('Function returned error:', resp.status, txt);
-      alert('Error from server: ' + txt);
-      return;
-    }
-
-    const data = await resp.json();
-    if (!data.resultBase64) {
-      console.error('No resultBase64 in response', data);
-      alert('No image returned');
-      return;
-    }
-
-    // convert base64 result to blob and show download link
-    const blob = await (await fetch('data:image/png;base64,' + data.resultBase64)).blob();
-    const url = URL.createObjectURL(blob);
-
-    // show image in an <img id="outImage"> or create a download button
-    const out = document.getElementById('outImage');
-    if (out) {
-      out.src = url;
-    } else {
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'result.png';
-      a.textContent = 'Download result';
-      document.body.appendChild(a);
-    }
-
-  } catch (err) {
-    console.error('Client error', err);
-    alert('Client error: ' + String(err));
   }
-}
-<input id="fileInput" type="file" accept="image/*">
-<button id="removeBtn">Remove Background</button>
-<img id="outImage" alt="Result" style="display:block; max-width:300px; margin-top:10px;">
-document.getElementById('removeBtn').addEventListener('click', removeBackground);
+
+  async function readResponseSafe(res) {
+    const ct = res.headers.get('content-type') || '';
+    if (ct.indexOf('application/json') !== -1) {
+      return res.json();
+    }
+    try { return await res.json(); } catch (e) { return await res.text(); }
+  }
+
+  removeBtn.addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    setStatus('');
+    preview.style.display = 'none';
+    resultImg.src = '';
+    downloadLink.href = '#';
+
+    const f = fileInput.files && fileInput.files[0];
+    if (!f) {
+      setStatus('Please choose an image file first.', true);
+      return;
+    }
+
+    removeBtn.disabled = true;
+    fileInput.disabled = true;
+    setStatus('Reading image...');
+
+    try {
+      const dataUrl = await fileToBase64(f);
+      setStatus('Uploading to processing server...');
+
+      const res = await fetch('/.netlify/functions/remove-bg', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: dataUrl })
+      });
+
+      if (!res.ok) {
+        let text = await res.text();
+        setStatus(`Server returned ${res.status}: ${text || res.statusText}`, true);
+        return;
+      }
+
+      const payload = await readResponseSafe(res);
+      let base64data = null;
+
+      if (typeof payload === 'string') {
+        base64data = payload;
+      } else if (payload && typeof payload === 'object') {
+        if (payload.body && typeof payload.body === 'string') base64data = payload.body;
+        else if (payload.imageBase64 && typeof payload.imageBase64 === 'string') base64data = payload.imageBase64;
+        else {
+          setStatus('Unexpected server response format. Check function logs.', true);
+          console.warn('Unexpected payload from function:', payload);
+          return;
+        }
+      }
+
+      if (!base64data) {
+        setStatus('No image returned from server.', true);
+        return;
+      }
+
+      if (!base64data.startsWith('data:')) {
+        base64data = 'data:image/png;base64,' + base64data.replace(/^data:image\/.*;base64,/, '');
+      }
+
+      resultImg.src = base64data;
+      downloadLink.href = base64data;
+      preview.style.display = 'block';
+      setStatus('Background removed — preview shown below.');
+    } catch (err) {
+      console.error(err);
+      setStatus('Error: ' + (err.message || err), true);
+    } finally {
+      removeBtn.disabled = false;
+      fileInput.disabled = false;
+    }
+  });
+})();
 </script>
+
+</body>
+</html>

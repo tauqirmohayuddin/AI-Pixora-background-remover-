@@ -65,6 +65,8 @@ async function removeBackground() {
     alert('Client error: ' + String(err));
   }
 }
-
+<input id="fileInput" type="file" accept="image/*">
+<button id="removeBtn">Remove Background</button>
+<img id="outImage" alt="Result" style="display:block; max-width:300px; margin-top:10px;">
 document.getElementById('removeBtn').addEventListener('click', removeBackground);
 </script>

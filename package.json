@@ -1,8 +1,9 @@
 {
   "name": "ai-pixora-pro",
   "version": "1.0.0",
-  "description": "AI Pixora Pro",
+  "description": "AI Pixora Pro - Background remover using remove.bg API",
   "main": "netlify/functions/remove-bg.js",
+  "type": "commonjs",
   "scripts": {
     "build": "echo 'skip build' && exit 0",
     "start": "netlify dev"

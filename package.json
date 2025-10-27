@@ -1,9 +1,11 @@
 {
   "name": "ai-pixora-pro",
   "version": "1.0.0",
-  "private": true,
+  "description": "AI Pixora Pro (test-safe package.json)",
+  "main": "netlify/functions/remove-bg.js",
   "scripts": {
-    "build": "echo 'skip build' && exit 0"
+    "build": "echo \"skip build\" && exit 0",
+    "start": "netlify dev"
   },
   "dependencies": {
     "node-fetch": "^2.6.7",

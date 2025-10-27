@@ -1,160 +1,70 @@
-
-
----
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Pixora Pro — Background Remover</title>
-<style>
-:root {
-  --accent:#e63946;
-  --bg:#fff;
-  --text:#222;
-  --radius:16px;
-}
-body {
-  margin:0;
-  font-family:Poppins,system-ui,Arial;
-  background:var(--bg);
-  color:var(--text);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  min-height:100vh;
-  padding:20px;
-}
-h1{
-  color:var(--accent);
-  margin-bottom:1rem;
-  text-align:center;
-}
-.container{
-  background:#f9f9f9;
-  border-radius:var(--radius);
-  box-shadow:0 4px 14px rgba(0,0,0,.1);
-  padding:2rem;
-  max-width:550px;
-  width:95%;
-  text-align:center;
-}
-input[type=file]{margin-top:1rem}
-button{
-  background:var(--accent);
-  color:#fff;
-  border:none;
-  border-radius:var(--radius);
-  padding:.8rem 1.4rem;
-  margin-top:1rem;
-  font-size:1rem;
-  cursor:pointer;
-  transition:background .3s;
-}
-button:hover{background:#d62828}
-#loader{
-  border:4px solid #f3f3f3;
-  border-top:4px solid var(--accent);
-  border-radius:50%;
-  width:40px;
-  height:40px;
-  animation:spin 1s linear infinite;
-  margin:20px auto;
-  display:none;
-}
-@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-#result-img{
-  margin-top:1rem;
-  max-width:100%;
-  display:none;
-  border-radius:var(--radius);
-  box-shadow:0 2px 8px rgba(0,0,0,.15);
-}
-#status{margin-top:.8rem;font-size:.9rem;color:#555;}
-a.download{
-  display:none;
-  background:var(--accent);
-  color:#fff;
-  text-decoration:none;
-  padding:.7rem 1.3rem;
-  border-radius:var(--radius);
-  margin-top:1rem;
-  inline-size:max-content;
-}
-footer{
-  margin-top:2rem;
-  font-size:.8rem;
-  opacity:.7;
-}
-</style>
-</head>
-<body>
-  <h1>AI Pixora Pro</h1>
-  <div class="container">
-    <p>Upload a photo and let AI Pixora remove the background in seconds.</p>
-    <input type="file" id="file-input" accept="image/*">
-    <button id="remove-btn">Remove Background</button>
-    <div id="loader"></div>
-    <div id="status"></div>
-    <img id="result-img" alt="Result image">
-    <a id="download" class="download" download="AI-Pixora-Result.png">⬇ Download Result</a>
-  </div>
-  <footer>© 2025 AI Pixora Pro. All rights reserved.</footer>
-
 <script>
-const removeBtn=document.getElementById("remove-btn");
-const fileInput=document.getElementById("file-input");
-const loader=document.getElementById("loader");
-const statusDiv=document.getElementById("status");
-const resultImg=document.getElementById("result-img");
-const downloadBtn=document.getElementById("download");
+async function fileToBase64(file){
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      // reader.result like "data:image/png;base64,AAAA..."
+      const parts = reader.result.split(',');
+      resolve(parts[1]); // return only base64 string
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
-https://YOUR-NETLIFY-SITE.netlify.app/.netlify/functions/remove-bg
-const NETLIFY_URL="https://YOUR-NETLIFY-SITE.netlify.app/.netlify/functions/remove-bg";
-
-removeBtn.onclick=async()=>{
-  if(!fileInput.files.length){
-    statusDiv.textContent="Please select an image first.";
+async function removeBackground() {
+  const fileInput = document.getElementById('fileInput');
+  if (!fileInput.files.length) {
+    alert('Choose an image first');
     return;
   }
-  const file=fileInput.files[0];
-  statusDiv.textContent="Uploading and processing...";
-  loader.style.display="block";
-  removeBtn.disabled=true;
-  resultImg.style.display="none";
-  downloadBtn.style.display="none";
+  const file = fileInput.files[0];
+  try {
+    // convert to base64 (no data:* prefix)
+    const imageBase64 = await fileToBase64(file);
 
-  try{
-    const fd=new FormData();
-    fd.append("image_file",file);
-    fd.append("size","auto");
+    // call netlify function
+    const resp = await fetch('/.netlify/functions/remove-bg', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ imageBase64 })
+    });
 
-    const res=await fetch(NETLIFY_URL,{method:"POST",body:fd});
-    if(!res.ok){
-      const txt=await res.text();
-      console.error("Error:",txt);
-      statusDiv.textContent="❌ Error "+res.status;
+    if (!resp.ok) {
+      const txt = await resp.text();
+      console.error('Function returned error:', resp.status, txt);
+      alert('Error from server: ' + txt);
       return;
     }
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    resultImg.src=url;
-    resultImg.style.display="block";
-    downloadBtn.href=url;
-    downloadBtn.style.display="inline-block";
-    statusDiv.textContent="✅ Background removed successfully!";
-  }catch(err){
-    console.error(err);
-    statusDiv.textContent="⚠️ Error: "+err.message;
-  }finally{
-    loader.style.display="none";
-    removeBtn.disabled=false;
+
+    const data = await resp.json();
+    if (!data.resultBase64) {
+      console.error('No resultBase64 in response', data);
+      alert('No image returned');
+      return;
+    }
+
+    // convert base64 result to blob and show download link
+    const blob = await (await fetch('data:image/png;base64,' + data.resultBase64)).blob();
+    const url = URL.createObjectURL(blob);
+
+    // show image in an <img id="outImage"> or create a download button
+    const out = document.getElementById('outImage');
+    if (out) {
+      out.src = url;
+    } else {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'result.png';
+      a.textContent = 'Download result';
+      document.body.appendChild(a);
+    }
+
+  } catch (err) {
+    console.error('Client error', err);
+    alert('Client error: ' + String(err));
   }
-};
+}
+
+document.getElementById('removeBtn').addEventListener('click', removeBackground);
 </script>
-</body>
-</html>
-
-
----

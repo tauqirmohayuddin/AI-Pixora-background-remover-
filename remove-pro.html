@@ -47,7 +47,7 @@
         </div>
       </div>
 
-      <p class="small">If you see an error referencing `Unexpected token '<'` — it means your HTML page tried to load server code as client JS. This page avoids that by using `fetch()`.</p>
+      <p class="small">If you see an error referencing `Unexpected token '<'` — it means your page attempted to load server-side code as client JS. This page uses `fetch()` and will not try to load server code in the browser.</p>
     </div>
   </main>
 
@@ -63,14 +63,12 @@
   const preview = document.getElementById('preview');
   const resultImg = document.getElementById('resultImg');
   const downloadLink = document.getElementById('downloadLink');
-  const downloadBtn = document.getElementById('downloadBtn');
 
   function setStatus(text, isError = false) {
     status.style.color = isError ? '#C0392B' : '#333';
     status.textContent = text || '';
   }
 
-  // Convert a File to Base64 string (data:image/...;base64,AAAA...)
   function fileToBase64(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -80,18 +78,12 @@
     });
   }
 
-  // Try to parse server response as JSON, otherwise text (fallback).
   async function readResponseSafe(res) {
     const ct = res.headers.get('content-type') || '';
     if (ct.indexOf('application/json') !== -1) {
       return res.json();
     }
-    // try json first, fallback to text
-    try {
-      return await res.json();
-    } catch (e) {
-      return await res.text();
-    }
+    try { return await res.json(); } catch (e) { return await res.text(); }
   }
 
   removeBtn.addEventListener('click', async (ev) => {
@@ -107,16 +99,14 @@
       return;
     }
 
-    // disable while working
     removeBtn.disabled = true;
     fileInput.disabled = true;
     setStatus('Reading image...');
 
     try {
       const dataUrl = await fileToBase64(f);
-      // Strip prefix if needed (server may want plain base64 or dataURL - check your function)
-      // Here we send the full dataURL: { imageBase64: "data:image/png;base64,..." }
       setStatus('Uploading to processing server...');
+
       const res = await fetch('/.netlify/functions/remove-bg', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,27 +114,20 @@
       });
 
       if (!res.ok) {
-        // Read error body (if any)
         let text = await res.text();
         setStatus(`Server returned ${res.status}: ${text || res.statusText}`, true);
         return;
       }
 
-      // The function might return JSON { body: "<base64...>" } or raw base64 text
       const payload = await readResponseSafe(res);
-
-      // Determine image base64 from payload
       let base64data = null;
+
       if (typeof payload === 'string') {
         base64data = payload;
       } else if (payload && typeof payload === 'object') {
-        // Common patterns:
-        // { body: "data:image/png;base64,...." }  or { imageBase64: "data:...,...." }
         if (payload.body && typeof payload.body === 'string') base64data = payload.body;
         else if (payload.imageBase64 && typeof payload.imageBase64 === 'string') base64data = payload.imageBase64;
         else {
-          // maybe the function returns JSON with base64 inside nested fields
-          // as fallback, try JSON.stringify(payload).slice(0,200)
           setStatus('Unexpected server response format. Check function logs.', true);
           console.warn('Unexpected payload from function:', payload);
           return;
@@ -156,13 +139,10 @@
         return;
       }
 
-      // If returned base64 lacks data: prefix, try to detect content-type
       if (!base64data.startsWith('data:')) {
-        // assume PNG if unknown
         base64data = 'data:image/png;base64,' + base64data.replace(/^data:image\/.*;base64,/, '');
       }
 
-      // show preview and enable download
       resultImg.src = base64data;
       downloadLink.href = base64data;
       preview.style.display = 'block';

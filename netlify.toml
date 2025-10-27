@@ -1,7 +1,3 @@
-# netlify.toml - explicit functions path and simple build settings
 [build]
   publish = "."
   functions = "netlify/functions"
-
-[dev]
-  command = "netlify dev"

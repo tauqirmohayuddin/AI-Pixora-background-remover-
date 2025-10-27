@@ -1,7 +1,7 @@
+# netlify.toml - explicit functions path and simple build settings
 [build]
-  functions = "netlify/functions"
   publish = "."
+  functions = "netlify/functions"
 
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["node-fetch","form-data"]
+[dev]
+  command = "netlify dev"

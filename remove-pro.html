@@ -5,184 +5,122 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>AI Pixora Pro — Background Remover</title>
   <style>
-    :root{
-      --accent:#c0392b;
-      --muted:#666;
-      --card:#fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      color: #222;
+    :root {
+      --accent: #c0392b;
+      --muted: #666;
+      --bg: #f5f7fa;
+      --white: #fff;
     }
-    body{ margin:0; background:#f4f6f8; display:flex; align-items:flex-start; justify-content:center; min-height:100vh; padding:32px; }
-    .container{ width:100%; max-width:880px; background:linear-gradient(#fff,#fafafa); border-radius:10px; box-shadow:0 6px 30px rgba(20,30,40,0.08); padding:36px; }
-    h1{ color:var(--accent); text-align:center; margin:0 0 12px; }
-    p.lead{ text-align:center; color:var(--muted); margin:0 0 20px; }
-    .uploader{ display:flex; gap:16px; align-items:center; justify-content:center; margin-bottom:18px; }
-    input[type=file]{ display:block; }
-    button.primary{ background:var(--accent); color:#fff; border:0; padding:12px 20px; border-radius:8px; cursor:pointer; }
-    button.primary[disabled]{ opacity:.6; cursor:not-allowed; }
-    .status{ text-align:center; color:var(--muted); margin:12px 0; min-height:20px; }
-    .preview{ display:flex; gap:18px; align-items:center; justify-content:center; margin-top:18px; flex-wrap:wrap; }
-    .preview img{ max-width:320px; border-radius:8px; box-shadow:0 4px 14px rgba(0,0,0,0.08); background:#fff; }
-    .downloadBtn{ text-decoration:none; display:inline-block; margin-top:8px; padding:10px 14px; border-radius:8px; background:#0b6; color:#fff; }
-    .loader{ display:inline-block; width:18px; height:18px; border-radius:50%; border:3px solid rgba(0,0,0,0.08); border-top-color:var(--accent); animation:spin .9s linear infinite; vertical-align:middle; margin-right:8px; }
-    @keyframes spin{ to{ transform:rotate(360deg); } }
-    footer{ text-align:center; color:var(--muted); margin-top:20px; font-size:13px;}
-    .hidden{ display:none; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      background: var(--white);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      padding: 32px;
+      width: 100%;
+      max-width: 780px;
+      text-align: center;
+    }
+
+    h1 {
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    p {
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+
+    input[type="file"] {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 10px 18px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-left: 10px;
+    }
+
+    button:disabled {
+      background: #aaa;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .loader {
+      border: 3px solid #eee;
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      animation: spin 0.8s linear infinite;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .preview {
+      margin-top: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 16px;
+    }
+
+    .preview img {
+      max-width: 340px;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    .download {
+      background: #27ae60;
+      color: white;
+      text-decoration: none;
+      padding: 10px 16px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 10px;
+    }
+
+    footer {
+      margin-top: 32px;
+      font-size: 13px;
+      color: #999;
+    }
   </style>
 </head>
+
 <body>
-  <div class="container" role="main">
+  <div class="container">
     <h1>AI Pixora Pro</h1>
-    <p class="lead">Upload a photo and let AI Pixora remove the background in seconds.</p>
-
-    <div class="uploader">
-      <input id="fileInput" type="file" accept="image/*" />
-      <button id="removeBtn" class="primary" disabled>Remove Background</button>
-    </div>
-
-    <div class="status" id="status"></div>
-
-    <div class="preview" id="previewArea"></div>
-
-    <footer>
-      &copy; 2025 AI Pixora Pro
-    </footer>
-  </div>
-
-  <script>
-  (function(){
-    const fileInput = document.getElementById('fileInput');
-    const removeBtn = document.getElementById('removeBtn');
-    const statusEl = document.getElementById('status');
-    const previewArea = document.getElementById('previewArea');
-
-    let selectedBase64 = null;
-
-    fileInput.addEventListener('change', async (ev) => {
-      previewArea.innerHTML = '';
-      statusEl.textContent = '';
-      const file = ev.target.files && ev.target.files[0];
-      if (!file) {
-        removeBtn.disabled = true;
-        selectedBase64 = null;
-        return;
-      }
-      // limit size? optional
-      if (file.size > 12 * 1024 * 1024) { // 12MB
-        statusEl.textContent = 'File too large. Choose a file under 12 MB.';
-        removeBtn.disabled = true;
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const dataUrl = e.target.result;
-        selectedBase64 = dataUrl.split(',')[1]; // base64 only
-        const img = document.createElement('img');
-        img.src = dataUrl;
-        img.alt = 'Original';
-        previewArea.appendChild(img);
-        removeBtn.disabled = false;
-      };
-      reader.onerror = function() {
-        statusEl.textContent = 'Error reading file.';
-        removeBtn.disabled = true;
-      };
-      reader.readAsDataURL(file);
-    });
-
-    removeBtn.addEventListener('click', async () => {
-      if (!selectedBase64) {
-        statusEl.textContent = 'Please choose an image first.';
-        return;
-      }
-      removeBtn.disabled = true;
-      statusEl.innerHTML = '<span class="loader" aria-hidden="true"></span>Removing background...';
-      previewArea.innerHTML = '';
-
-      try {
-        // POST to the Netlify function
-        const res = await fetch('/.netlify/functions/remove-bg', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: selectedBase64 })
-        });
-
-        // debug: show server text (first 1200 chars) in console
-        const serverText = await res.text();
-        console.log('Server response (first 1200 chars):', serverText.slice(0,1200));
-
-        // If not OK, show message
-        if (!res.ok) {
-          // attempt parse as json for helpful message
-          try {
-            const parsed = JSON.parse(serverText);
-            statusEl.textContent = parsed && parsed.error ? 'Error: ' + parsed.error : 'Server error: ' + (parsed.message || res.status);
-          } catch (e) {
-            statusEl.textContent = 'Server error. Status: ' + res.status;
-          }
-          removeBtn.disabled = false;
-          return;
-        }
-
-        // If function returns base64 image (assumed)
-        // try parse as JSON first (common), otherwise treat serverText as base64
-        let bodyObj;
-        try {
-          bodyObj = JSON.parse(serverText);
-        } catch (err) {
-          bodyObj = null;
-        }
-
-        let outBase64 = null;
-        if (bodyObj && bodyObj.isBase64Encoded && bodyObj.body) {
-          // Netlify style function returning { isBase64Encoded: true, body: '...' }
-          outBase64 = bodyObj.body;
-        } else if (bodyObj && bodyObj.imageBase64) {
-          outBase64 = bodyObj.imageBase64;
-        } else if (serverText && serverText.trim().length > 0 && serverText.indexOf('<') !== 0) {
-          // maybe serverText is direct base64 string
-          outBase64 = serverText.trim();
-        }
-
-        if (!outBase64) {
-          statusEl.textContent = 'No image received from server.';
-          removeBtn.disabled = false;
-          return;
-        }
-
-        // create image blob URL
-        const binary = atob(outBase64);
-        const len = binary.length;
-        const bytes = new Uint8Array(len);
-        for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
-        const blob = new Blob([bytes.buffer], { type: 'image/png' });
-        const url = URL.createObjectURL(blob);
-
-        // show result image and download button
-        const img = document.createElement('img');
-        img.src = url;
-        img.alt = 'Background removed';
-        previewArea.appendChild(img);
-
-        const download = document.createElement('a');
-        download.href = url;
-        download.download = 'ai-pixora-removed.png';
-        download.className = 'downloadBtn';
-        download.textContent = 'Download PNG';
-        previewArea.appendChild(download);
-
-        statusEl.textContent = 'Background removed successfully!';
-        removeBtn.disabled = false;
-      } catch (err) {
-        console.error('Client error:', err);
-        statusEl.textContent = 'Client error: ' + String(err);
-        removeBtn.disabled = false;
-      }
-    });
-
-    // small debug log
-    console.log('Client script loaded.');
-  })();
-  </script>
-</body>
-</html>
+    <p

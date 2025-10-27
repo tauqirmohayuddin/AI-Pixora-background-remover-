@@ -1,15 +1,11 @@
 {
   "name": "ai-pixora-pro",
   "version": "1.0.0",
-  "description": "AI Pixora Pro (test-safe package.json)",
+  "description": "AI Pixora Pro - Background Remover",
   "main": "netlify/functions/remove-bg.js",
   "scripts": {
     "build": "echo \"skip build\" && exit 0",
     "start": "netlify dev"
-  },
-  "dependencies": {
-    "node-fetch": "^2.6.7",
-    "form-data": "^4.0.0"
   },
   "engines": {
     "node": ">=18"

@@ -34,12 +34,7 @@ exports.handler = async function (event) {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString("base64");
-
-    return {
-      statusCode: 200,
-      headers: { "Content-Type": "image/png" },
-      isBase64Encoded: true,
+    const bas
       body: base64,
     };
   } catch (err) {

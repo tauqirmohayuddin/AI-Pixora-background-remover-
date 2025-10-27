@@ -1,8 +1,17 @@
-[build]
-  functions = "netlify/functions"
-  publish = "."
-  node_bundler = "esbuild"
-
-[functions]
-  node_bundler = "esbuild"
-  external_node_modules = ["node-fetch"]
+{
+  "name": "ai-pixora-pro",
+  "version": "1.0.0",
+  "description": "AI Pixora Pro",
+  "main": "netlify/functions/remove-bg.js",
+  "scripts": {
+    "build": "echo 'skip build' && exit 0",
+    "start": "netlify dev"
+  },
+  "dependencies": {
+    "node-fetch": "^2.6.7",
+    "form-data": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,8 +1,15 @@
 [build]
-functions="netlify/
+publish = "."
+functions = "netlify/
 functions"
+command = ""
   publish = "."
   
   [functions]
 node_bundler = "esbuild"
 external_node_modules = []
+
+[[redirects]]
+from = "/*"
+to = "/remove-pro.html"
+status = 200
